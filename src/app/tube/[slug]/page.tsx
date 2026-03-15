@@ -3,42 +3,37 @@
 import { useParams } from "next/navigation";
 import { Play, Heart, Share2, Lock, Clock, Eye, ChevronRight, Flame } from "lucide-react";
 import Link from "next/link";
-import { MOCK_VIDEOS } from "@/lib/mock-data";
-import VideoCard from "@/components/VideoCard";
+import { MOCK_TUBE_VIDEOS } from "@/lib/mock-data";
+import TubeVideoCard from "@/components/TubeVideoCard";
 
-export default function VideoPage() {
+export default function TubeVideoPage() {
   const params = useParams();
-  const video = MOCK_VIDEOS.find((v) => v.id === params.id);
+  const video = MOCK_TUBE_VIDEOS.find((v) => v.slug === params.slug);
 
   if (!video) {
     return (
       <div className="pt-32 pb-16 text-center">
         <h1 className="font-display text-3xl font-bold">Video no encontrado</h1>
-        <Link href="/videos" className="text-coral-400 mt-4 inline-block hover:underline">
-          ← Volver a videos
-        </Link>
+        <Link href="/tube" className="text-coral-400 mt-4 inline-block hover:underline">← Volver al tube</Link>
       </div>
     );
   }
 
-  const related = MOCK_VIDEOS.filter((v) => v.id !== video.id).slice(0, 4);
+  const related = MOCK_TUBE_VIDEOS.filter((v) => v.id !== video.id).slice(0, 4);
 
   return (
-    <div className="pt-20 pb-16">
+    <div className="pt-16 sm:pt-20 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-text-muted mb-6 pt-4">
-          <Link href="/" className="hover:text-coral-400 transition-colors">Inicio</Link>
+          <Link href="/" className="hover:text-coral-400">Inicio</Link>
           <ChevronRight className="w-3 h-3" />
-          <Link href="/videos" className="hover:text-coral-400 transition-colors">Videos</Link>
+          <Link href="/tube" className="hover:text-coral-400">Tube</Link>
           <ChevronRight className="w-3 h-3" />
           <span className="text-text-secondary truncate">{video.title}</span>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Video Player Area */}
           <div className="lg:col-span-2">
-            {/* Player placeholder */}
             <div className="relative aspect-video rounded-2xl overflow-hidden bg-dark-800 border border-white/10">
               <div className="absolute inset-0 bg-gradient-to-br from-dark-700 to-dark-900 flex items-center justify-center">
                 {video.isPremium ? (
@@ -48,12 +43,8 @@ export default function VideoPage() {
                     </div>
                     <h3 className="font-display text-xl font-bold mb-2">Contenido Premium</h3>
                     <p className="text-text-secondary text-sm mb-6">Suscríbete para ver el video completo</p>
-                    <Link
-                      href="/pricing"
-                      className="shimmer relative inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-coral-500 to-rose-500 text-white font-bold hover:shadow-xl hover:shadow-coral-500/30 transition-all"
-                    >
-                      <Flame className="w-4 h-4" />
-                      Desbloquear — $4.99/mes
+                    <Link href="/pricing" className="shimmer relative inline-flex items-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-coral-500 to-rose-500 text-white font-bold">
+                      <Flame className="w-4 h-4" /> Desbloquear — $4.99/mes
                     </Link>
                   </div>
                 ) : (
@@ -62,54 +53,35 @@ export default function VideoPage() {
                   </div>
                 )}
               </div>
-
-              {/* Duration bar */}
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-dark-600">
-                <div className="h-full w-0 bg-gradient-to-r from-coral-500 to-rose-500 rounded-full" />
-              </div>
             </div>
 
-            {/* Video Info */}
             <div className="mt-6">
               <h1 className="font-display text-2xl lg:text-3xl font-bold">{video.title}</h1>
               <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-text-muted">
-                <Link href={`/model/${video.modelId}`} className="text-coral-400 hover:text-coral-300 font-medium transition-colors">
-                  {video.model}
-                </Link>
-                <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> {video.views} vistas</span>
+                <Link href={`/profile/${video.creatorId}`} className="text-coral-400 hover:text-coral-300 font-medium">{video.creatorName}</Link>
+                <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" /> {video.views}</span>
                 <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {video.duration}</span>
-                <Link href={`/category/${video.categorySlug}`} className="px-2 py-0.5 bg-dark-700 rounded text-xs hover:bg-dark-600 transition-colors">
-                  {video.category}
-                </Link>
               </div>
-
-              {/* Actions */}
               <div className="flex items-center gap-3 mt-6">
-                <button type="button" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-dark-800 border border-white/10 text-sm font-medium hover:border-coral-500/30 hover:bg-coral-500/5 transition-all">
+                <button type="button" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-dark-800 border border-white/10 text-sm font-medium hover:border-coral-500/30 transition-all">
                   <Heart className="w-4 h-4 text-coral-400" /> Favorito
                 </button>
                 <button type="button" className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-dark-800 border border-white/10 text-sm font-medium hover:border-white/20 transition-all">
                   <Share2 className="w-4 h-4" /> Compartir
                 </button>
               </div>
-
-              {/* Description */}
               <div className="mt-8 p-6 rounded-xl bg-dark-800/50 border border-white/5">
                 <p className="text-text-secondary leading-relaxed">{video.description}</p>
               </div>
             </div>
           </div>
 
-          {/* Sidebar — Related */}
           <div>
             <h3 className="font-display text-lg font-bold mb-4 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-coral-400" />
-              Videos Relacionados
+              <Flame className="w-4 h-4 text-coral-400" /> Relacionados
             </h3>
             <div className="space-y-4">
-              {related.map((v) => (
-                <VideoCard key={v.id} video={v} />
-              ))}
+              {related.map((v) => <TubeVideoCard key={v.id} video={v} />)}
             </div>
           </div>
         </div>

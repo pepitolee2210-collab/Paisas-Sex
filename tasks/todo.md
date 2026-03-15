@@ -1,170 +1,336 @@
-# PaisaSex — Plan de Arquitectura XL
+# PaisaSex — Red Social para Adultos + Tube Profesional
 
-## Concepto
-Plataforma tube de video para adultos con modelos colombianas (paisas). Audiencia global, contenido subido exclusivamente por el admin. Monetización por suscripción de pago por ver.
+## Concepto (EVOLUCIÓN)
+PaisaSex ya no es solo un tube. Es una **red social para adultos con monetización** donde:
+- **Creadoras** tienen perfiles con stories (24h), reels, posts + contenido premium de pago
+- **Fans** siguen creadoras, ven contenido gratuito, pagan por exclusivo
+- **Tube** (videos profesionales del admin) es una sección integrada
+- **Comisión**: plataforma cobra 10-15% de las ganancias de cada creadora
+
+Propuesta de valor: Las chicas que venden contenido por WhatsApp tienen una plataforma profesional, segura y con herramientas de monetización. Algo que NO existe hoy.
 
 ---
 
 ## Arquitectura General
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   FRONTEND                       │
-│          Next.js 14+ (App Router)                │
-│          TypeScript + Tailwind CSS               │
-│          Deploy: Vercel                          │
-├─────────────────────────────────────────────────┤
-│                   BACKEND                        │
-│              Supabase                            │
-│  ┌──────────┬──────────┬───────────┐            │
-│  │   Auth   │ Database │  Storage  │            │
-│  │ (users,  │ (videos, │ (thumbs,  │            │
-│  │  subs)   │ cats,    │  assets)  │            │
-│  │          │ models)  │           │            │
-│  └──────────┴──────────┴───────────┘            │
-├─────────────────────────────────────────────────┤
-│               VIDEO STREAMING                    │
-│           Bunny.net Stream                       │
-│  (CDN global, HLS adaptive, bajo costo,         │
-│   token auth, anti-hotlink)                      │
-├─────────────────────────────────────────────────┤
-│                 PAGOS                            │
-│              Stripe                              │
-│  (suscripciones recurrentes, webhooks,           │
-│   portal de cliente, multi-moneda)               │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                      FRONTEND                             │
+│              Next.js 16 (App Router)                      │
+│           TypeScript + Tailwind CSS v4                    │
+│              Deploy: Vercel                               │
+├──────────────────────────────────────────────────────────┤
+│                      BACKEND                              │
+│                    Supabase                                │
+│  ┌────────────┬────────────┬─────────────┬────────────┐  │
+│  │    Auth     │  Database  │   Storage   │  Realtime  │  │
+│  │ (users,    │ (creators, │ (stories,   │ (notifs,   │  │
+│  │  creators) │  content,  │  thumbnails,│  feed      │  │
+│  │            │  payments) │  avatars)   │  updates)  │  │
+│  └────────────┴────────────┴─────────────┴────────────┘  │
+├──────────────────────────────────────────────────────────┤
+│                  VIDEO / MEDIA                            │
+│               Bunny.net Stream + CDN                      │
+│  (Stories, reels, videos premium, tube content)           │
+├──────────────────────────────────────────────────────────┤
+│                     PAGOS                                 │
+│              Stripe Connect                               │
+│  (Split payments: 85-90% creadora / 10-15% plataforma,   │
+│   suscripciones por creadora, compras individuales)       │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ## Stack Tecnológico
 
 | Capa | Tecnología | Justificación |
 |------|-----------|---------------|
-| Frontend | Next.js 14+ App Router | SSR/SSG, SEO, rendimiento |
-| Estilos | Tailwind CSS | Rápido, responsive, consistente |
-| Auth | Supabase Auth | Email/password, OAuth, JWT |
+| Frontend | Next.js 16 App Router | SSR/SSG, SEO, rendimiento |
+| Estilos | Tailwind CSS v4 | Rápido, responsive |
+| Auth | Supabase Auth | Email, OAuth, roles (fan/creadora/admin) |
 | Database | Supabase PostgreSQL | RLS, realtime, escalable |
-| Storage | Supabase Storage | Thumbnails, avatares, assets estáticos |
-| Video | Bunny.net Stream | CDN global, HLS, económico ($1/1000 views) |
-| Pagos | Stripe | Suscripciones, webhooks, cumplimiento |
-| Deploy | Vercel | Edge functions, CI/CD automático |
+| Storage | Supabase Storage | Stories, fotos, thumbnails |
+| Video | Bunny.net Stream | CDN global, HLS, económico |
+| Pagos | Stripe Connect | Split payments automáticos por creadora |
+| Realtime | Supabase Realtime | Notificaciones, feed en vivo |
+| Deploy | Vercel | Edge functions, CI/CD |
 
-## Modelo de Datos (Supabase PostgreSQL)
+## Roles de Usuario
+
+| Rol | Puede hacer |
+|-----|-------------|
+| Fan (free) | Navegar, seguir creadoras, ver contenido gratuito, ver trailers tube |
+| Fan (suscrito) | Todo lo free + contenido premium de creadoras suscritas + tube completo |
+| Creadora | Subir stories/reels/posts, contenido premium, gestionar precios, ver ganancias |
+| Admin | Todo + gestionar tube, aprobar creadoras, analytics globales, configurar comisión |
+
+## Modelo de Datos
 
 ```sql
--- Usuarios (extiende auth.users)
-profiles: id, email, username, avatar_url, subscription_tier, subscription_status, stripe_customer_id, created_at
+-- ═══ USUARIOS ═══
+profiles:
+  id (uuid, FK auth.users)
+  username (unique)
+  display_name
+  avatar_url
+  bio
+  role (fan | creator | admin)
+  is_verified (boolean)
+  stripe_customer_id
+  created_at
 
--- Suscripciones
-subscriptions: id, user_id, stripe_subscription_id, tier (free|basic|premium), status, current_period_start, current_period_end
+-- ═══ CREADORAS ═══
+creator_profiles:
+  id (uuid, FK profiles)
+  banner_url
+  city
+  age
+  subscription_price (decimal, ej: 4.99)
+  stripe_account_id (Stripe Connect)
+  commission_rate (decimal, default 0.15)
+  total_earnings (decimal)
+  followers_count (int)
+  subscribers_count (int)
+  is_approved (boolean)
+  approved_at
 
--- Modelos
-models: id, name, slug, bio, age, city, profile_image, banner_image, is_active, created_at
+-- ═══ RELACIONES SOCIALES ═══
+follows:
+  id, follower_id (FK profiles), creator_id (FK creator_profiles)
+  created_at
+  UNIQUE(follower_id, creator_id)
 
--- Videos
-videos: id, title, slug, description, model_id, category_id, bunny_video_id, thumbnail_url, duration, views_count, is_premium, is_published, created_at
+creator_subscriptions:
+  id, fan_id (FK profiles), creator_id (FK creator_profiles)
+  stripe_subscription_id
+  status (active | canceled | past_due)
+  price_at_time (decimal)
+  current_period_start, current_period_end
+  created_at
 
--- Categorías
-categories: id, name, slug, description, thumbnail_url, sort_order
+-- ═══ CONTENIDO ═══
+stories:
+  id, creator_id (FK creator_profiles)
+  media_url (image or video)
+  media_type (image | video)
+  duration (int, seconds, for video)
+  views_count
+  expires_at (created_at + 24h)
+  created_at
 
--- Tags
-tags: id, name, slug
-video_tags: video_id, tag_id
+posts:
+  id, creator_id (FK creator_profiles)
+  type (reel | photo | gallery)
+  caption
+  media_urls (jsonb, array of URLs)
+  thumbnail_url
+  is_premium (boolean)
+  individual_price (decimal, nullable — for buy-per-item)
+  likes_count, comments_count, views_count
+  created_at
 
--- Favoritos
-favorites: id, user_id, video_id, created_at
+post_likes:
+  id, user_id (FK profiles), post_id (FK posts)
+  created_at
 
--- Historial de visualización
-watch_history: id, user_id, video_id, watched_at, progress_seconds
+post_comments:
+  id, user_id (FK profiles), post_id (FK posts)
+  content (text, max 500 chars)
+  created_at
+
+-- ═══ COMPRAS INDIVIDUALES ═══
+content_purchases:
+  id, buyer_id (FK profiles), post_id (FK posts)
+  amount (decimal)
+  platform_fee (decimal)
+  creator_earning (decimal)
+  stripe_payment_id
+  created_at
+
+-- ═══ TUBE (videos profesionales del admin) ═══
+tube_videos:
+  id, title, slug, description
+  creator_id (FK creator_profiles, nullable — admin videos)
+  category_id (FK categories)
+  bunny_video_id, thumbnail_url
+  duration, views_count
+  is_premium (boolean)
+  is_published (boolean)
+  created_at
+
+categories:
+  id, name, slug, description, thumbnail_url, sort_order
+
+tags:
+  id, name, slug
+
+tube_video_tags:
+  video_id, tag_id
+
+-- ═══ FAVORITOS / HISTORIAL ═══
+favorites:
+  id, user_id, tube_video_id, created_at
+
+watch_history:
+  id, user_id, tube_video_id, watched_at, progress_seconds
+
+-- ═══ NOTIFICACIONES ═══
+notifications:
+  id, user_id (FK profiles)
+  type (new_story | new_post | new_subscriber | payout)
+  title, body
+  reference_id (uuid, generic)
+  is_read (boolean)
+  created_at
+
+-- ═══ PAYOUTS ═══
+creator_payouts:
+  id, creator_id (FK creator_profiles)
+  amount, status (pending | processing | completed | failed)
+  stripe_payout_id
+  period_start, period_end
+  created_at
 ```
 
-## Tiers de Suscripción
+## Monetización
 
-| Tier | Precio | Acceso |
-|------|--------|--------|
-| Free | $0 | Trailers (30s), thumbnails, navegar catálogo |
-| Basic | $4.99/mes | Videos completos en 720p |
-| Premium | $9.99/mes | Videos completos en 1080p/4K, sin ads, acceso anticipado |
+| Fuente | Fan paga | Creadora recibe | Plataforma recibe |
+|--------|----------|-----------------|-------------------|
+| Suscripción a creadora | $X/mes | 85-90% | 10-15% |
+| Compra contenido individual | $X único | 85-90% | 10-15% |
+| Suscripción tube (Basic) | $4.99/mes | — | 100% |
+| Suscripción tube (Premium) | $9.99/mes | — | 100% |
 
 ## Páginas / Rutas
 
 ```
-/                     → Landing + videos destacados (público)
-/videos               → Catálogo con filtros y búsqueda
-/video/[slug]         → Player + info + relacionados
-/categories           → Grid de categorías
-/category/[slug]      → Videos de la categoría
-/models               → Grid de modelos
-/model/[slug]         → Perfil + videos del modelo
-/search?q=            → Resultados de búsqueda
-/pricing              → Planes de suscripción
-/auth/login           → Login
-/auth/register        → Registro
-/auth/forgot-password → Recuperar contraseña
-/account              → Perfil del usuario
-/account/subscription → Gestión de suscripción
-/account/favorites    → Videos favoritos
-/account/history      → Historial
+═══ PÚBLICO ═══
+/                         → Landing (hero + creadoras destacadas + tube trending)
+/explore                  → Explorar creadoras + contenido
+/auth/login               → Login
+/auth/register            → Registro (fan o creadora)
+/auth/forgot-password     → Recuperar contraseña
 
---- ADMIN (solo tú) ---
-/admin                → Dashboard
-/admin/videos         → CRUD videos (subir a Bunny, metadata)
-/admin/models         → CRUD modelos
-/admin/categories     → CRUD categorías
-/admin/users          → Ver usuarios y suscripciones
-/admin/analytics      → Métricas (views, revenue, signups)
+═══ FEED SOCIAL ═══
+/feed                     → Timeline de creadoras que sigues (stories arriba + posts)
+/stories/[creatorId]      → Viewer de stories (fullscreen, swipe)
+
+═══ PERFILES DE CREADORAS ═══
+/[username]               → Perfil público (bio, stats, posts gratuitos, botón suscribirse)
+/[username]/premium       → Contenido premium (solo suscriptores)
+/[username]/reels         → Reels de la creadora
+
+═══ TUBE (videos profesionales) ═══
+/tube                     → Catálogo de videos profesionales
+/tube/[slug]              → Player de video
+/tube/categories          → Categorías del tube
+/tube/category/[slug]     → Videos por categoría
+
+═══ FAN (usuario autenticado) ═══
+/account                  → Mi perfil / configuración
+/account/subscriptions    → Mis suscripciones activas
+/account/purchases        → Mis compras de contenido
+/account/favorites        → Mis favoritos (tube)
+/account/history          → Mi historial
+
+═══ PANEL CREADORA ═══
+/creator                  → Dashboard (ganancias, stats, contenido reciente)
+/creator/stories          → Subir/gestionar stories
+/creator/posts            → Subir/gestionar posts y reels
+/creator/premium          → Gestionar contenido premium + precios
+/creator/earnings         → Historial de ganancias y payouts
+/creator/subscribers      → Ver lista de suscriptores
+/creator/settings         → Configurar perfil, precio suscripción
+
+═══ ADMIN ═══
+/admin                    → Dashboard global
+/admin/creators           → Aprobar/gestionar creadoras
+/admin/tube               → CRUD videos profesionales
+/admin/categories         → CRUD categorías
+/admin/users              → Usuarios y suscripciones
+/admin/earnings           → Revenue global, comisiones
+/admin/analytics          → Métricas (MAU, revenue, growth)
+
+═══ LEGAL ═══
+/pricing                  → Planes tube + info para creadoras
+/terms                    → Términos de uso
+/privacy                  → Política de privacidad
+/compliance               → 2257 Compliance
+/dmca                     → DMCA
+/creators/apply           → Landing para atraer creadoras + formulario
 ```
 
 ## Seguridad
 
-- RLS en todas las tablas de Supabase
-- Videos premium protegidos con signed URLs (Bunny token auth)
-- Rate limiting en API routes
-- Validación server-side de suscripción antes de servir video
-- Admin protegido por rol en DB (no hardcoded)
+- RLS en TODAS las tablas de Supabase
+- Contenido premium protegido: signed URLs con expiración
+- Stories: verificar expiración server-side antes de servir
+- Stripe Connect: onboarding verificado para creadoras
+- Moderación: admin aprueba creadoras antes de publicar
+- Rate limiting en uploads y API routes
+- Validación server-side de suscripción/compra antes de servir contenido
 - CSP headers estrictos
-- Verificación de edad (checkbox legal + términos)
+- Verificación de edad obligatoria
+- Reportar contenido (flag system)
 
 ## Fases de Implementación
 
-### Fase 1: Fundación (actual)
-- [ ] 1.1 Scaffold Next.js + Tailwind + TypeScript
-- [ ] 1.2 Configurar Supabase (proyecto, tablas, RLS)
-- [ ] 1.3 Sistema de auth (registro, login, perfil)
-- [ ] 1.4 Layout principal (navbar, footer, tema oscuro)
-- [ ] 1.5 Landing page
+### Fase 1: Fundación ✅ (COMPLETADA)
+- [x] 1.1 Scaffold Next.js + Tailwind + TypeScript
+- [x] 1.2 Layout principal (navbar, footer, tema oscuro)
+- [x] 1.3 Landing page con hero sensual
+- [x] 1.4 Todas las páginas del tube (19 páginas)
+- [x] 1.5 Verificación de edad + música de fondo
+- [x] 1.6 Diseño mobile-first responsive
+- [x] 1.7 Push a GitHub
 
-### Fase 2: Contenido
-- [ ] 2.1 Panel admin (layout + auth de admin)
-- [ ] 2.2 CRUD modelos
-- [ ] 2.3 CRUD categorías
-- [ ] 2.4 CRUD videos (integración Bunny.net upload)
-- [ ] 2.5 Página de catálogo de videos (público)
-- [ ] 2.6 Player de video con protección por tier
-- [ ] 2.7 Páginas de modelos y categorías
+### Fase 2: Backend + Auth
+- [ ] 2.1 Crear proyecto Supabase
+- [ ] 2.2 Esquema de base de datos completo (todas las tablas)
+- [ ] 2.3 RLS policies para cada tabla
+- [ ] 2.4 Sistema de auth (registro como fan o creadora)
+- [ ] 2.5 Roles y permisos (fan, creator, admin)
+- [ ] 2.6 Middleware de protección de rutas
 
-### Fase 3: Monetización
-- [ ] 3.1 Integración Stripe (productos, precios, checkout)
-- [ ] 3.2 Webhooks de Stripe → actualizar suscripción en DB
-- [ ] 3.3 Página de pricing
-- [ ] 3.4 Portal de gestión de suscripción
-- [ ] 3.5 Lógica de acceso por tier (middleware)
+### Fase 3: Red Social — Creadoras
+- [ ] 3.1 Landing "Sé una creadora" (/creators/apply)
+- [ ] 3.2 Onboarding de creadora (formulario, verificación)
+- [ ] 3.3 Panel creadora: dashboard + subir stories
+- [ ] 3.4 Panel creadora: subir posts/reels + contenido premium
+- [ ] 3.5 Panel creadora: configurar precio de suscripción
+- [ ] 3.6 Perfil público de creadora (/[username])
+- [ ] 3.7 Sistema de stories (subir, ver, expiración 24h)
 
-### Fase 4: Engagement
-- [ ] 4.1 Sistema de búsqueda (full-text search PostgreSQL)
-- [ ] 4.2 Favoritos
-- [ ] 4.3 Historial de visualización
-- [ ] 4.4 Videos relacionados
-- [ ] 4.5 Conteo de vistas
+### Fase 4: Red Social — Fans
+- [ ] 4.1 Sistema de follow (seguir creadoras gratis)
+- [ ] 4.2 Feed principal (/feed) — stories arriba + posts
+- [ ] 4.3 Story viewer fullscreen
+- [ ] 4.4 Likes y comentarios en posts
+- [ ] 4.5 Explorar creadoras (/explore)
+- [ ] 4.6 Notificaciones
 
-### Fase 5: Pulido
-- [ ] 5.1 SEO (meta tags, sitemap, structured data)
-- [ ] 5.2 Performance (lazy loading, image optimization)
-- [ ] 5.3 Analytics dashboard admin
-- [ ] 5.4 Verificación de edad
-- [ ] 5.5 Términos y condiciones, política de privacidad
-- [ ] 5.6 Testing final y deploy
+### Fase 5: Monetización
+- [ ] 5.1 Stripe Connect: onboarding de creadoras
+- [ ] 5.2 Suscripción por creadora (checkout + webhooks)
+- [ ] 5.3 Compra individual de contenido premium
+- [ ] 5.4 Split automático de pagos (85-90% / 10-15%)
+- [ ] 5.5 Dashboard de ganancias para creadoras
+- [ ] 5.6 Sistema de payouts
+- [ ] 5.7 Suscripción tube (Basic/Premium) — tu contenido profesional
+
+### Fase 6: Tube Profesional (integrado)
+- [ ] 6.1 Admin: CRUD videos profesionales
+- [ ] 6.2 Integración Bunny.net para upload/streaming
+- [ ] 6.3 Catálogo público + player con protección por tier
+- [ ] 6.4 Categorías y búsqueda del tube
+
+### Fase 7: Admin + Pulido
+- [ ] 7.1 Panel admin: aprobar creadoras
+- [ ] 7.2 Panel admin: analytics globales
+- [ ] 7.3 Panel admin: revenue y comisiones
+- [ ] 7.4 SEO (meta tags, sitemap, structured data)
+- [ ] 7.5 Performance (lazy loading, image optimization)
+- [ ] 7.6 Testing final y deploy a producción
 
 ---
 
-## Estado: PENDIENTE APROBACIÓN
-Esperando aprobación del plan antes de iniciar Fase 1.
+## Estado: PLAN APROBADO — Iniciando Fase 2

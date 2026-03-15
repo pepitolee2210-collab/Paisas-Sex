@@ -4,6 +4,7 @@ import FeaturedVideos from "@/components/FeaturedVideos";
 import ModelsShowcase from "@/components/ModelsShowcase";
 import WhyUsSection from "@/components/WhyUsSection";
 import PricingSection from "@/components/PricingSection";
+import CreatorCTA from "@/components/CreatorCTA";
 
 export default function HomePage() {
   return (
@@ -12,6 +13,7 @@ export default function HomePage() {
       <CategoriesStrip />
       <FeaturedVideos />
       <ModelsShowcase />
+      <CreatorCTA />
       <WhyUsSection />
       <PricingSection />
     </>
