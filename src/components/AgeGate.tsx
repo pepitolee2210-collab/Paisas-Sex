@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, Volume2, VolumeX } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import Image from "next/image";
 
 const AGE_VERIFIED_KEY = "paisasex_age_verified";
 
 export default function AgeGate({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState<boolean | null>(null);
-  const [muted, setMuted] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(AGE_VERIFIED_KEY);
@@ -20,23 +18,10 @@ export default function AgeGate({ children }: { children: React.ReactNode }) {
   const handleConfirm = () => {
     localStorage.setItem(AGE_VERIFIED_KEY, "true");
     setVerified(true);
-
-    const audio = new Audio("/bg-music.mp3");
-    audio.loop = true;
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-    audioRef.current = audio;
   };
 
   const handleDeny = () => {
     window.location.href = "https://www.google.com";
-  };
-
-  const toggleMute = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = !audioRef.current.muted;
-      setMuted(!muted);
-    }
   };
 
   if (verified === null) {
@@ -114,18 +99,6 @@ export default function AgeGate({ children }: { children: React.ReactNode }) {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Music toggle button — only visible after verification */}
-      {verified && audioRef.current && (
-        <button
-          type="button"
-          onClick={toggleMute}
-          className="fixed bottom-20 right-4 z-50 w-10 h-10 rounded-full bg-dark-800/90 backdrop-blur-sm border border-white/10 flex items-center justify-center text-text-secondary hover:text-coral-400 hover:border-coral-500/30 transition-all md:bottom-6"
-          aria-label={muted ? "Activar música" : "Silenciar música"}
-        >
-          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-        </button>
-      )}
 
       {children}
     </>
